@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ScrollView, Modal } from 'react-native';
 import styled from 'styled-components/native';
-
+import { KakaoMapModal } from '../assets/KakaoMapModal';
 const Container = styled.SafeAreaView`
   flex: 1;
   background-color: #ffffff;
@@ -259,6 +259,18 @@ const ModalButtonText = styled.Text`
   color: #ff9900;
   font-weight: 600;
 `;
+const SelectButton = styled.TouchableOpacity`
+  margin-top: 8px;
+  background-color: #ff9900;
+  padding: 10px 15px;
+  border-radius: 20px;
+  align-items: center;
+`;
+
+const SelectButtonText = styled.Text`
+  color: #fff;
+  font-weight: bold;
+`;
 
 /* ---------- 컴포넌트 본문 ---------- */
 
@@ -288,8 +300,10 @@ export default function MatchScreen({ navigation }) {
 
   const minus = () => setPeople(p => (p > 2 ? p - 1 : 2)); // 2,3,4만
   const plus = () => setPeople(p => (p < 4 ? p + 1 : 4));
-
+  const [startMapModal, setStartMapModal] = useState(false);
+  const [endMapModal, setEndMapModal] = useState(false);
   // 요금 계산
+  
   const sharedFare = Math.round(BASE_FARE * SHARE_RATE);
   const perPerson = Math.round(sharedFare / people);
   const perPersonText = perPerson.toLocaleString('ko-KR');
@@ -325,6 +339,17 @@ export default function MatchScreen({ navigation }) {
 
   return (
     <Container>
+          <KakaoMapModal
+        visible={startMapModal}
+        onSelect={({ address }) => setStart(address)}
+        onClose={() => setStartMapModal(false)}
+      />
+      {/* 도착지 지도선택 모달 */}
+      <KakaoMapModal
+        visible={endMapModal}
+        onSelect={({ address }) => setEnd(address)}
+        onClose={() => setEndMapModal(false)}
+      />
       {/* 시간 선택 모달 */}
       <Modal
         visible={timeModalVisible}
@@ -422,6 +447,9 @@ export default function MatchScreen({ navigation }) {
             value={start}
             onChangeText={setStart}
           />
+           <SelectButton onPress={() => setStartMapModal(true)}>
+            <SelectButtonText>지도에서 선택</SelectButtonText>
+          </SelectButton>
         </Section>
 
         {/* 도착지 */}
@@ -433,6 +461,9 @@ export default function MatchScreen({ navigation }) {
             value={end}
             onChangeText={setEnd}
           />
+            <SelectButton onPress={() => setEndMapModal(true)}>
+            <SelectButtonText>지도에서 선택</SelectButtonText>
+          </SelectButton>
         </Section>
 
         {/* 출발 시간 */}

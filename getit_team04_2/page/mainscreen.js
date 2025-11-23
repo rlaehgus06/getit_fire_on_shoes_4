@@ -127,7 +127,7 @@ export default function MainScreen({ navigation }) {
         <MainBtnText>실시간 자동 매칭</MainBtnText>
       </MainBtn>
       <SubBtn>
-        <SubBtnText>합승 방 찾기</SubBtnText>
+        <SubBtnText onPress={()=> navigation.navigate('RoomList')}>합승 방 찾기</SubBtnText>
       </SubBtn>
     </Container>
   );

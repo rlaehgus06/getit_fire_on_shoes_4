@@ -4,8 +4,8 @@ import { SafeAreaView, StyleSheet, View, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import PaymentProcessingScreen from './page/PaymentProcessingScreen';
-
-
+import RoomListScreen from './page/RoomListScreen.jsx';
+import addRoom from './page/addRoom.jsx';
 import MainScreen from './page/mainscreen';
 import MatchScreen from './page/MatchScreen';
 import MatchingScreen from './page/MatchingScreen';
@@ -30,6 +30,8 @@ function AppInner() {
           <Stack.Screen name="Matching" component={MatchingScreen} />
           <Stack.Screen name="Payment" component={PaymentScreen} />
           <Stack.Screen name="PaymentProcessing" component={PaymentProcessingScreen} />
+          <Stack.Screen name="RoomList" component={RoomListScreen} />
+           <Stack.Screen name="addRoom" component={addRoom} />
         </Stack.Navigator>
       </NavigationContainer>
     </>
