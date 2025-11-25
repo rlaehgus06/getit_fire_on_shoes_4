@@ -10,7 +10,7 @@ import MainScreen from './page/mainscreen';
 import MatchScreen from './page/MatchScreen';
 import MatchingScreen from './page/MatchingScreen';
 import PaymentScreen from './page/PaymentScreen';
-
+import FindMyWayScreen from './page/FindMyWayScreen.jsx';
 const Stack = createNativeStackNavigator();
 
 const MOBILE_WIDTH = 390;
@@ -32,6 +32,7 @@ function AppInner() {
           <Stack.Screen name="PaymentProcessing" component={PaymentProcessingScreen} />
           <Stack.Screen name="RoomList" component={RoomListScreen} />
            <Stack.Screen name="addRoom" component={addRoom} />
+           <Stack.Screen name="FindMyWay" component={FindMyWayScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </>

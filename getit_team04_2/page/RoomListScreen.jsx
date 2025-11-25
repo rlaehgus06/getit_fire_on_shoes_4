@@ -248,7 +248,7 @@ export default function RoomListScreen({ navigation }) {
       </FilterRow>
 
       {/* 내 경로로 맞는 방 찾기 */}
-      <RouteButton onPress={() => alert('내 경로로 맞는 방 찾기 기능을 구현하세요.')}>
+      <RouteButton onPress={() => navigation.navigate('FindMyWay')}>
         <RouteButtonText>내 경로로 맞는 방 찾기</RouteButtonText>
       </RouteButton>
 
