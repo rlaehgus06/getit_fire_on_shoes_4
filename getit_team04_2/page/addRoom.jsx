@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/native';
-import { ScrollView } from 'react-native';
+import { ScrollView, Alert } from 'react-native';
 import { KakaoMapModal } from '../assets/KakaoMapModal';
+
 const Container = styled.SafeAreaView`
   flex: 1;
   background-color: #f5f6fa;
@@ -51,6 +52,7 @@ const CardBox = styled.View`
   shadow-radius: 3px;
   elevation: 1;
 `;
+
 const CardTitle = styled.Text`
   font-size: 15px;
   font-weight: bold;
@@ -75,31 +77,34 @@ const Input = styled.TextInput`
 
 const Row = styled.View`
   flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 12px;
 `;
 
 const DateBox = styled.View`
-  flex-direction: row;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
 `;
 
 const DateInput = styled.TextInput`
   background-color: #f4f6fa;
   border-radius: 10px;
-  padding: 5px 12px;
+  padding: 8px 12px;
   font-size: 15px;
-  width: 80px;
-  margin-right: 5px;
+  height: 40px;
+  flex: 1;
 `;
 
 const TimeInput = styled.TextInput`
   background-color: #f4f6fa;
   border-radius: 10px;
-  padding: 5px 12px;
+  padding: 8px 12px;
   font-size: 15px;
-  width: 60px;
-  margin-left: 5px;
+  height: 40px;
+  flex: 1;
 `;
 
 const PeopleBox = styled.View`
@@ -151,13 +156,13 @@ const ToggleBtn = styled.TouchableOpacity`
   padding: 10px 0;
   border-radius: 12px;
   align-items: center;
-  background-color: ${props => (props.active ? '#725ef2' : 'transparent')};
+  background-color: ${(props) => (props.active ? '#725ef2' : 'transparent')};
 `;
 
 const ToggleText = styled.Text`
   font-size: 14px;
   font-weight: bold;
-  color: ${props => (props.active ? '#fff' : '#715ef2')};
+  color: ${(props) => (props.active ? '#fff' : '#715ef2')};
 `;
 
 const HintText = styled.Text`
@@ -168,7 +173,6 @@ const HintText = styled.Text`
 
 const CreateBtn = styled.TouchableOpacity`
   margin: 20px 18px 30px 18px;
-  background: #e667e7;
   background-color: #725ef2;
   padding: 14px;
   border-radius: 16px;
@@ -184,22 +188,6 @@ const CreateBtnText = styled.Text`
   font-size: 16px;
 `;
 
-const ModalButtonRow = styled.View`
-  flex-direction: row;
-  justify-content: flex-end;
-  margin-top: 4px;
-`;
-
-const ModalButton = styled.TouchableOpacity`
-  padding: 6px 10px;
-  margin-left: 8px;
-`;
-
-const ModalButtonText = styled.Text`
-  font-size: 14px;
-  color: #725ef2;
-  font-weight: 600;
-`;
 const SelectButton = styled.TouchableOpacity`
   margin-top: 8px;
   background-color: #725ef2;
@@ -213,9 +201,7 @@ const SelectButtonText = styled.Text`
   font-weight: bold;
 `;
 
-
 export default function addRoom({ navigation }) {
-  // 상태 관리
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [date, setDate] = useState('');
@@ -223,25 +209,98 @@ export default function addRoom({ navigation }) {
   const [people, setPeople] = useState(4);
   const [onlySameGender, setOnlySameGender] = useState(true);
   const [startMapModal, setStartMapModal] = useState(false);
-  const [endMapModal, setEndMapModal] = useState(false);    
-  // 예시 요금 계산
-  const BASE_FARE = 15000;
-  const farePerPerson = Math.round(BASE_FARE / people);
+  const [endMapModal, setEndMapModal] = useState(false);
+
+  // 날짜 형식 자동 변환 (20251129 -> 2025-11-29)
+  const formatDateInput = (input) => {
+    const clean = input.replace(/[^0-9]/g, '');
+    if (clean.length >= 8) {
+      const year = clean.slice(0, 4);
+      const month = clean.slice(4, 6);
+      const day = clean.slice(6, 8);
+      return `${year}-${month}-${day}`;
+    }
+    return clean;
+  };
+
+  // 시간 형식 자동 변환 (1430 -> 14:30)
+  const formatTimeInput = (input) => {
+    const clean = input.replace(/[^0-9]/g, '');
+    if (clean.length >= 4) {
+      const hour = clean.slice(0, 2);
+      const minute = clean.slice(2, 4);
+      return `${hour}:${minute}`;
+    }
+    return clean;
+  };
+
+  const handleCreateRoom = async () => {
+    if (!start.trim() || !end.trim() || !date.trim() || !time.trim()) {
+      Alert.alert('오류', '모든 필수 정보를 입력해주세요.');
+      return;
+    }
+    
+    const dateMatch = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const timeMatch = time.match(/^(\d{2}):(\d{2})$/);
+    if (!dateMatch || !timeMatch) {
+      Alert.alert('오류', '날짜(YYYY-MM-DD)와 시간(HH:MM) 형식을 확인해주세요.');
+      return;
+    }
+    
+    const [, year, month, day] = dateMatch;
+    const [, hour, minute] = timeMatch;
+    const dateObj = new Date(`${year}-${month}-${day}T${hour}:${minute}:00+09:00`);
+    
+    if (isNaN(dateObj.getTime()) || dateObj < new Date()) {
+      Alert.alert('오류', '유효한 미래 날짜와 시간을 입력해주세요.');
+      return;
+    }
+    
+    const departureTime = dateObj.toISOString();
+    const roomData = {
+      start: start.trim(),
+      end: end.trim(),
+      departureTime,
+      hostName: "모아타1",
+      maxPeople: people,
+      sameGenderOnly: onlySameGender,
+    };
+    
+    console.log('생성할 방 데이터:', roomData);
+    
+    try {
+      const response = await fetch('YOUR_BACKEND_URL/api/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(roomData),
+      });
+      
+      if (response.ok) {
+        Alert.alert('성공', '방이 성공적으로 생성되었습니다!');
+        navigation.goBack();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        Alert.alert('오류', errorData.message || '방 생성에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('방 생성 오류:', error);
+      Alert.alert('오류', '네트워크 오류가 발생했습니다.');
+    }
+  };
 
   return (
     <Container>
-        <KakaoMapModal
-                visible={startMapModal}
-                onSelect={({ address }) => setStart(address)}
-                onClose={() => setStartMapModal(false)}
-              />
-              {/* 도착지 지도선택 모달 */}
-              <KakaoMapModal
-                visible={endMapModal}
-                onSelect={({ address }) => setEnd(address)}
-                onClose={() => setEndMapModal(false)}
-              />
-      {/* 헤더 + 뒤로가기 */}
+      <KakaoMapModal
+        visible={startMapModal}
+        onSelect={({ address }) => setStart(address)}
+        onClose={() => setStartMapModal(false)}
+      />
+      <KakaoMapModal
+        visible={endMapModal}
+        onSelect={({ address }) => setEnd(address)}
+        onClose={() => setEndMapModal(false)}
+      />
+      
       <HeaderRow>
         <BackBtn onPress={() => navigation.goBack()}>
           <BackIcon>←</BackIcon>
@@ -250,12 +309,10 @@ export default function addRoom({ navigation }) {
       </HeaderRow>
       
       <ScrollView>
-        {/* 안내 문구 */}
         <TipBox>
           <TipText>💡 방을 만들면 같은 경로로 가는 사람들이 참여할 수 있어요</TipText>
         </TipBox>
-
-        {/* 출발/도착지 */}
+        
         <CardBox>
           <CardTitle>출발지</CardTitle>
           <Input
@@ -266,41 +323,42 @@ export default function addRoom({ navigation }) {
           <SelectButton onPress={() => setStartMapModal(true)}>
             <SelectButtonText>지도에서 선택</SelectButtonText>
           </SelectButton>
-          <CardTitle style={{marginTop:14}}>도착지</CardTitle>
+          
+          <CardTitle style={{ marginTop: 14 }}>도착지</CardTitle>
           <Input
             placeholder="예: 서울대학교 정문"
             value={end}
             onChangeText={setEnd}
           />
-          <SelectButton onPress={() => setStartMapModal(true)}>
+          <SelectButton onPress={() => setEndMapModal(true)}>
             <SelectButtonText>지도에서 선택</SelectButtonText>
           </SelectButton>
         </CardBox>
-
-        {/* 출발시간 */}
+        
         <CardBox>
           <CardTitle>출발 시간</CardTitle>
           <Row>
             <DateBox>
-              <FieldLabel>날짜</FieldLabel>
+              <FieldLabel>날짜 (20251129 → 2025-11-29)</FieldLabel>
               <DateInput
                 placeholder="연도-월-일"
                 value={date}
-                onChangeText={setDate}
+                onChangeText={(text) => setDate(formatDateInput(text))}
+                keyboardType="numeric"
               />
             </DateBox>
             <DateBox>
-              <FieldLabel>시간</FieldLabel>
+              <FieldLabel>시간 (1430 → 14:30)</FieldLabel>
               <TimeInput
                 placeholder="--:--"
                 value={time}
-                onChangeText={setTime}
+                onChangeText={(text) => setTime(formatTimeInput(text))}
+                keyboardType="numeric"
               />
             </DateBox>
           </Row>
         </CardBox>
-
-        {/* 인원수 선택 */}
+        
         <CardBox>
           <CardTitle>탑승 인원</CardTitle>
           <PeopleBox>
@@ -314,11 +372,10 @@ export default function addRoom({ navigation }) {
             </PBtn>
           </PeopleBox>
           <FareHint>
-            현재 {people}명이 탑승하면 1인당 약 ₩{farePerPerson.toLocaleString()}
+            현재 {people}명이 탑승하면 1인당 약 ₩{Math.round(15000 / people).toLocaleString()}
           </FareHint>
         </CardBox>
-
-        {/* 매칭 설정 */}
+        
         <CardBox>
           <CardTitle>매칭 설정</CardTitle>
           <ToggleRow>
@@ -331,12 +388,10 @@ export default function addRoom({ navigation }) {
           </ToggleRow>
           <HintText>안전한 합승을 위해 동성끼리만 매칭됩니다</HintText>
         </CardBox>
-
-        {/* 방 만들기 버튼 */}
-        <CreateBtn onPress={() => alert('방 만들기 동작')}>
+        
+        <CreateBtn onPress={handleCreateRoom}>
           <CreateBtnText>방 만들기</CreateBtnText>
         </CreateBtn>
-        
       </ScrollView>
     </Container>
   );
