@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/native';
-import { ScrollView, Alert } from 'react-native';
+import { ScrollView, Alert, Platform } from 'react-native';
 import { KakaoMapModal } from '../assets/KakaoMapModal';
+import { post } from '../api';
 
 const Container = styled.SafeAreaView`
   flex: 1;
@@ -48,9 +49,8 @@ const CardBox = styled.View`
   border-radius: 16px;
   margin: 0 18px 14px 18px;
   padding: 18px 16px;
-  shadow-opacity: 0.15;
-  shadow-radius: 3px;
   elevation: 1;
+  ${Platform.OS === 'web' ? 'box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);' : ''}
 `;
 
 const CardTitle = styled.Text`
@@ -87,6 +87,15 @@ const DateBox = styled.View`
   align-items: flex-start;
   flex: 1;
   min-width: 0;
+  margin-right: 6px;
+`;
+
+const TimeBox = styled.View`
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
+  margin-left: 6px;
 `;
 
 const DateInput = styled.TextInput`
@@ -95,7 +104,7 @@ const DateInput = styled.TextInput`
   padding: 8px 12px;
   font-size: 15px;
   height: 40px;
-  flex: 1;
+  width: 100%;
 `;
 
 const TimeInput = styled.TextInput`
@@ -104,7 +113,7 @@ const TimeInput = styled.TextInput`
   padding: 8px 12px;
   font-size: 15px;
   height: 40px;
-  flex: 1;
+  width: 100%;
 `;
 
 const PeopleBox = styled.View`
@@ -177,9 +186,8 @@ const CreateBtn = styled.TouchableOpacity`
   padding: 14px;
   border-radius: 16px;
   align-items: center;
-  shadow-opacity: 0.25;
-  shadow-radius: 4px;
   elevation: 2;
+  ${Platform.OS === 'web' ? 'box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);' : ''}
 `;
 
 const CreateBtnText = styled.Text`
@@ -201,15 +209,24 @@ const SelectButtonText = styled.Text`
   font-weight: bold;
 `;
 
-export default function addRoom({ navigation }) {
+export default function AddRoom({ navigation }) {
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [people, setPeople] = useState(4);
-  const [onlySameGender, setOnlySameGender] = useState(true);
   const [startMapModal, setStartMapModal] = useState(false);
   const [endMapModal, setEndMapModal] = useState(false);
+
+  // 로그인 기능 제거 - 사용자 정보 불러오기 제거
+  // useEffect(() => {
+  //   const loadUser = async () => {
+  //     const user = await getCurrentUser();
+  //     console.log('addRoom - 현재 사용자:', user);
+  //     setCurrentUser(user);
+  //   };
+  //   loadUser();
+  // }, [navigation]);
 
   // 날짜 형식 자동 변환 (20251129 -> 2025-11-29)
   const formatDateInput = (input) => {
@@ -235,6 +252,9 @@ export default function addRoom({ navigation }) {
   };
 
   const handleCreateRoom = async () => {
+    console.log('방 만들기 버튼 클릭됨');
+    console.log('입력값:', { start, end, date, time, people });
+    
     if (!start.trim() || !end.trim() || !date.trim() || !time.trim()) {
       Alert.alert('오류', '모든 필수 정보를 입력해주세요.');
       return;
@@ -249,10 +269,51 @@ export default function addRoom({ navigation }) {
     
     const [, year, month, day] = dateMatch;
     const [, hour, minute] = timeMatch;
+    
+    // 연도 검증 (2000-2099)
+    const yearNum = parseInt(year);
+    if (yearNum < 2000 || yearNum > 2099) {
+      Alert.alert('오류', '연도는 2000-2099 사이여야 합니다.');
+      return;
+    }
+    
+    // 월 검증 (1-12)
+    const monthNum = parseInt(month);
+    if (monthNum < 1 || monthNum > 12) {
+      Alert.alert('오류', '월은 1-12 사이여야 합니다.');
+      return;
+    }
+    
+    // 일 검증 (1-31)
+    const dayNum = parseInt(day);
+    if (dayNum < 1 || dayNum > 31) {
+      Alert.alert('오류', '일은 1-31 사이여야 합니다.');
+      return;
+    }
+    
+    // 시간 검증 (0-23)
+    const hourNum = parseInt(hour);
+    if (hourNum < 0 || hourNum > 23) {
+      Alert.alert('오류', '시간은 0-23 사이여야 합니다.');
+      return;
+    }
+    
+    // 분 검증 (0-59)
+    const minuteNum = parseInt(minute);
+    if (minuteNum < 0 || minuteNum > 59) {
+      Alert.alert('오류', '분은 0-59 사이여야 합니다.');
+      return;
+    }
+    
     const dateObj = new Date(`${year}-${month}-${day}T${hour}:${minute}:00+09:00`);
     
-    if (isNaN(dateObj.getTime()) || dateObj < new Date()) {
-      Alert.alert('오류', '유효한 미래 날짜와 시간을 입력해주세요.');
+    if (isNaN(dateObj.getTime())) {
+      Alert.alert('오류', '유효하지 않은 날짜입니다.');
+      return;
+    }
+    
+    if (dateObj < new Date()) {
+      Alert.alert('오류', '미래 날짜와 시간을 입력해주세요.');
       return;
     }
     
@@ -261,31 +322,25 @@ export default function addRoom({ navigation }) {
       start: start.trim(),
       end: end.trim(),
       departureTime,
-      hostName: "모아타1",
+      hostName: '테스트',  // 기본 호스트 이름
       maxPeople: people,
-      sameGenderOnly: onlySameGender,
     };
     
     console.log('생성할 방 데이터:', roomData);
     
+    console.log('생성할 방 데이터:', roomData);
+    
     try {
-      const response = await fetch('YOUR_BACKEND_URL/api/rooms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(roomData),
-      });
-      console.log('생성할 방 데이터:', roomData);
-      
-      if (response.ok) {
-        Alert.alert('성공', '방이 성공적으로 생성되었습니다!');
-        navigation.goBack();
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        Alert.alert('오류', errorData.message || '방 생성에 실패했습니다.');
-      }
+      console.log('API 호출 시작: POST /api/rooms');
+      const response = await post('/api/rooms', roomData);
+      console.log('방 생성 성공:', response);
+      Alert.alert('성공', '방이 성공적으로 생성되었습니다!');
+      navigation.goBack();
     } catch (error) {
       console.error('방 생성 오류:', error);
-      Alert.alert('오류', '네트워크 오류가 발생했습니다.');
+      console.error('에러 상세:', error.message);
+      console.error('에러 스택:', error.stack);
+      Alert.alert('오류', error.message || '방 생성에 실패했습니다.');
     }
   };
 
@@ -348,7 +403,7 @@ export default function addRoom({ navigation }) {
                 keyboardType="numeric"
               />
             </DateBox>
-            <DateBox>
+            <TimeBox>
               <FieldLabel>시간 (1430 → 14:30)</FieldLabel>
               <TimeInput
                 placeholder="--:--"
@@ -356,7 +411,7 @@ export default function addRoom({ navigation }) {
                 onChangeText={(text) => setTime(formatTimeInput(text))}
                 keyboardType="numeric"
               />
-            </DateBox>
+            </TimeBox>
           </Row>
         </CardBox>
         
@@ -378,16 +433,10 @@ export default function addRoom({ navigation }) {
         </CardBox>
         
         <CardBox>
-          <CardTitle>매칭 설정</CardTitle>
-          <ToggleRow>
-            <ToggleBtn active={onlySameGender} onPress={() => setOnlySameGender(true)}>
-              <ToggleText active={onlySameGender}>동성만</ToggleText>
-            </ToggleBtn>
-            <ToggleBtn active={!onlySameGender} onPress={() => setOnlySameGender(false)}>
-              <ToggleText active={!onlySameGender}>상관없음</ToggleText>
-            </ToggleBtn>
-          </ToggleRow>
-          <HintText>안전한 합승을 위해 동성끼리만 매칭됩니다</HintText>
+          <CardTitle>매칭 안내</CardTitle>
+          <HintText>
+            안전한 합승을 위해 신뢰온도 시스템을 운영합니다.
+          </HintText>
         </CardBox>
         
         <CreateBtn onPress={handleCreateRoom}>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Modal } from 'react-native';
+import { Modal, Alert } from 'react-native';
 import styled from 'styled-components/native';
+import { post } from '../api';
 
 const Container = styled.SafeAreaView`
   flex: 1;
@@ -66,25 +67,26 @@ const RatingButtonText = styled.Text`
   color: #ffffff;
 `;
 
-// 👉 실제 서버 주소로 바꿔주세요.
-const API_BASE_URL = 'http://YOUR_BACKEND_HOST:PORT';
-
 export default function TripFlowScreen({ route, navigation }) {
-  // 방 주인(평가 받을 사람)의 아이디를 RoomList에서 넘겨줍니다.
-  const { userId, currentTemperature } = route?.params || {};
+  // 방 ID를 RoomList에서 넘겨받습니다.
+  const { roomId, currentTemperature } = route?.params || {};
 
   const [status, setStatus] = useState('DRIVING'); // 'DRIVING' | 'DONE'
   const [showRating, setShowRating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    console.log('TripFlowScreen 마운트됨, roomId:', roomId);
+    
     // 1.5초 뒤에 "운행 완료"로 변경
     const drivingTimer = setTimeout(() => {
+      console.log('운행 완료 상태로 변경');
       setStatus('DONE');
     }, 1500);
 
     // 3초 뒤에 평가 모달 띄우기
     const ratingTimer = setTimeout(() => {
+      console.log('평가 모달 표시');
       setShowRating(true);
     }, 3000);
 
@@ -92,47 +94,54 @@ export default function TripFlowScreen({ route, navigation }) {
       clearTimeout(drivingTimer);
       clearTimeout(ratingTimer);
     };
-  }, []);
+  }, [roomId]);
 
   const sendRating = async isGood => {
+    console.log('평가 전송 시작:', { roomId, isGood, currentTemperature });
+    
+    if (!roomId) {
+      console.warn('roomId가 없어 평가를 건너뜁니다:', roomId);
+      Alert.alert('알림', '방 정보가 없어 평가할 수 없습니다.');
+      setShowRating(false);
+      navigation.goBack();
+      return;
+    }
+
     try {
       setSubmitting(true);
 
-      // 나빴어요를 눌렀을 때는 온도 변화 없이 서버에만 "bad" 전송하거나
-      // 아예 호출하지 않도록 팀 규칙에 맞게 사용하세요.
-      if (isGood && userId) {
-        await fetch(`${API_BASE_URL}/api/users/rate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId,          // 예: "qwe123"
-            delta: 0.1,      // 백엔드에서 temperature = temperature + 0.1 처리
-            rating: 'good',
-            currentTemperature, // 필요하면 같이 전송
-          }),
-        });
-      } else if (!isGood && userId) {
-        await fetch(`${API_BASE_URL}/api/users/rate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId,
-            delta: 0,
-            rating: 'bad',
-          }),
-        });
+      // 좋았어요: 온도 +0.1, 나빴어요: 온도 변화 없음
+      const ratingData = {
+        roomId: Number(roomId), // 숫자로 변환
+        rating: isGood ? 'good' : 'bad',
+        delta: isGood ? 0.1 : 0,
+      };
+
+      if (currentTemperature) {
+        ratingData.currentTemperature = currentTemperature;
       }
 
+      console.log('평가 데이터 전송:', ratingData);
+      const response = await post('/api/users/rate', ratingData);
+      console.log('평가 응답:', response);
+
       setShowRating(false);
+      Alert.alert('완료', `평가가 완료되었습니다.\n방 온도: ${response.previousTemperature}° → ${response.newTemperature}°`);
       navigation.goBack(); // 방 목록 등으로 복귀
-    } catch (e) {
-      console.error(e);
-      alert('평가 전송 중 오류가 발생했습니다.');
+    } catch (error) {
+      console.error('평가 전송 오류:', error);
+      console.error('에러 상세:', error.message);
+      Alert.alert('오류', error.message || '평가 전송 중 오류가 발생했습니다.');
       setShowRating(false);
     } finally {
       setSubmitting(false);
     }
   };
+
+  // 디버깅: showRating 상태 로그
+  useEffect(() => {
+    console.log('showRating 상태:', showRating);
+  }, [showRating]);
 
   return (
     <Container>
@@ -153,7 +162,9 @@ export default function TripFlowScreen({ route, navigation }) {
         transparent
         animationType="fade"
         visible={showRating}
-        onRequestClose={() => {}}
+        onRequestClose={() => {
+          console.log('모달 닫기 요청');
+        }}
       >
         <RatingModalBackground>
           <RatingCard>

@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components/native';
 import { FlatList, Alert } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { KakaoMapModal } from '../assets/KakaoMapModal';
+import { get } from '../api';
+import { getCurrentUser } from '../utils/userStorage';
 
 const Container = styled.SafeAreaView`
   flex: 1;
@@ -161,45 +164,69 @@ export default function RoomListScreen({ navigation }) {
   const fetchRooms = async () => {
     try {
       setLoading(true);
-      const response = await fetch('YOUR_BACKEND_URL/api/rooms', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      console.log('방 목록 가져오기 시작...');
       
-      if (response.ok) {
-        const data = await response.json();
-        // 백엔드 데이터 → UI 데이터 변환
-        const formattedRooms = data.map(room => ({
+      // 모든 방 조회 (성별 필터링 제거)
+      const endpoint = '/api/rooms';
+      
+      const data = await get(endpoint);
+      console.log('받은 데이터:', data);
+      console.log('데이터 개수:', data?.length || 0);
+      
+      if (!Array.isArray(data)) {
+        console.error('데이터 형식 오류: 배열이 아닙니다.', data);
+        Alert.alert('오류', '서버 응답 형식이 올바르지 않습니다.');
+        setRooms([]);
+        return;
+      }
+      
+      // 백엔드 데이터 → UI 데이터 변환
+      const formattedRooms = data.map(room => {
+        // 방의 온도 사용 (roomTemperature), 숫자로 변환하고 없으면 기본값 36.0
+        const roomTemp = room.roomTemperature != null 
+          ? Number(room.roomTemperature) 
+          : 36.0;
+        
+        // 숫자가 아니면 기본값 사용
+        const safeTemp = isNaN(roomTemp) ? 36.0 : roomTemp;
+        
+        console.log('방 데이터 변환:', { 
+          roomId: room.id, 
+          hostName: room.hostName, 
+          roomTemperature: room.roomTemperature,
+          convertedTemp: safeTemp
+        });
+        
+        return {
           id: room.id.toString(),
           emoji: '😊', // 기본 이모지 (백엔드에서 추가 가능)
-          name: room.hostName,
-          // 백엔드에서 온도 같이 내려줄 경우 사용
-          temperature: room.temperature,
-          trust: room.temperature != null
-            ? `신뢰온도 ${room.temperature.toFixed(1)}°`
-            : '신뢰온도 36.0°',
-          from: room.start,
-          to: room.end,
-          gender: room.sameGenderOnly ? '동성만' : '상관없음',
-          time: new Date(room.departureTime).toLocaleTimeString('ko-KR', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false,
-          }),
-          members: `${room.members}/${room.maxPeople}명`,
-          price: `₩${Math.round(15000 / room.maxPeople).toLocaleString()}`,
-          userId: room.user_id || room.hostUserId,  // ✅ 평가 대상 유저 아이디
+          name: room.hostName || '익명',
+          // 방의 온도 정보 사용 (숫자로 변환)
+          temperature: safeTemp,
+          trust: `신뢰온도 ${safeTemp.toFixed(1)}°`,
+          from: room.start || '출발지 미정',
+          to: room.end || '도착지 미정',
+          // gender 필드 제거 (더 이상 사용하지 않음)
+          time: room.departureTime 
+            ? new Date(room.departureTime).toLocaleTimeString('ko-KR', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+              })
+            : '--:--',
+          members: `${room.members || 1}/${room.maxPeople || 4}명`,
+          price: `₩${Math.round(15000 / (room.maxPeople || 4)).toLocaleString()}`,
+          roomId: room.id,  // ✅ 평가 대상 방 ID
           rawData: room,
-        }));
-        setRooms(formattedRooms);
-      } else {
-        console.error('방 목록 가져오기 실패');
-      }
+        };
+      });
+      console.log('변환된 방 목록:', formattedRooms);
+      setRooms(formattedRooms);
     } catch (error) {
-      console.error('네트워크 오류:', error);
-      Alert.alert('오류', '방 목록을 불러오지 못했습니다.');
+      console.error('네트워크 오류 상세:', error);
+      console.error('에러 메시지:', error.message);
+      Alert.alert('오류', `방 목록을 불러오지 못했습니다.\n${error.message || '네트워크 연결을 확인해주세요.'}`);
+      setRooms([]);
     } finally {
       setLoading(false);
     }
@@ -210,31 +237,47 @@ export default function RoomListScreen({ navigation }) {
     fetchRooms();
   }, []);
 
+  // 화면이 포커스될 때마다 방 목록 새로고침 (평가 후 돌아왔을 때 온도 업데이트 반영)
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('RoomListScreen 포커스됨 - 방 목록 새로고침');
+      fetchRooms();
+    }, [])
+  );
+
   // 방 추가
   const addRoom = () => navigation.navigate('addRoom');
 
   // 필터링된 방 목록
+  // 검색어가 있으면 검색 필터 적용, 없으면 모든 방 표시
   const filteredRooms = rooms.filter(
     room =>
-      room.gender === '동성만' &&                      // 동성만 방만 남김
+      !search.trim() ||  // 검색어가 없으면 모든 방 표시
       (room.from.includes(search) ||
        room.to.includes(search) ||
        room.name.includes(search))
   );
 
-  const renderRoom = ({ item }) => (
-    <RoomCard
-      onPress={() =>
-        navigation.navigate('TripFlow', {
-          userId: item.userId,                 // 평가 받을 사람 아이디
-          currentTemperature: item.temperature // 선택사항
-        })
-      }
-    >
+  const renderRoom = ({ item }) => {
+    const handleRoomPress = () => {
+      console.log('방 클릭:', { 
+        roomId: item.id, 
+        roomIdForRating: item.roomId,
+        temperature: item.temperature 
+      });
+      
+      // 방 ID를 전달하여 평가 시 해당 방의 온도를 업데이트
+      navigation.navigate('TripFlow', {
+        roomId: item.roomId,                 // ✅ 평가 대상 방 ID (필수)
+        currentTemperature: item.temperature // 현재 방의 온도
+      });
+    };
+    
+    return (
+    <RoomCard onPress={handleRoomPress}>
       <RoomHeader>
         <RoomEmoji>{item.emoji}</RoomEmoji>
         <RoomName>{item.name}</RoomName>
-        <MemberDesc>{item.gender}</MemberDesc>
       </RoomHeader>
       <InfoRow>
         <InfoText>{item.trust}</InfoText>
@@ -248,7 +291,8 @@ export default function RoomListScreen({ navigation }) {
         <PriceText>{item.price}</PriceText>
       </InfoRow>
     </RoomCard>
-  );
+    );
+  };
 
   return (
     <Container>
