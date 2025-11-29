@@ -50,8 +50,7 @@ export default function SignUpScreen({ navigation }) {
   const handleSignUp = () => {
     // 여기서 백엔드 연결하면 됨
     console.log("회원가입 데이터: ", { userId, password });
-    
-    // 가입 완료 후 이동 (홈으로 이동 또는 로그인 화면으로 이동)
+
     alert("가입 완료!");
     navigation.goBack();
   };

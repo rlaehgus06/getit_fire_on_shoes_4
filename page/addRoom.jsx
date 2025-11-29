@@ -274,6 +274,7 @@ export default function addRoom({ navigation }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(roomData),
       });
+      console.log('생성할 방 데이터:', roomData);
       
       if (response.ok) {
         Alert.alert('성공', '방이 성공적으로 생성되었습니다!');

@@ -11,6 +11,9 @@ import MatchScreen from './page/MatchScreen';
 import MatchingScreen from './page/MatchingScreen';
 import PaymentScreen from './page/PaymentScreen';
 import FindMyWayScreen from './page/FindMyWayScreen.jsx';
+import SignUpScreen from './page/SignUpScreen.jsx';   // ✅ 회원가입 화면
+import TripFlowScreen from './page/TripFlowScreen.jsx';
+
 const Stack = createNativeStackNavigator();
 
 const MOBILE_WIDTH = 390;
@@ -21,7 +24,7 @@ function AppInner() {
     <>
       <StatusBar style="dark" />
       <NavigationContainer>
-        <Stack.Navigator 
+        <Stack.Navigator
           initialRouteName="Main"
           screenOptions={{ headerShown: false }}
         >
@@ -31,8 +34,11 @@ function AppInner() {
           <Stack.Screen name="Payment" component={PaymentScreen} />
           <Stack.Screen name="PaymentProcessing" component={PaymentProcessingScreen} />
           <Stack.Screen name="RoomList" component={RoomListScreen} />
-           <Stack.Screen name="addRoom" component={addRoom} />
-           <Stack.Screen name="FindMyWay" component={FindMyWayScreen} />
+          <Stack.Screen name="addRoom" component={addRoom} />
+          <Stack.Screen name="FindMyWay" component={FindMyWayScreen} />
+          <Stack.Screen name="SignUp" component={SignUpScreen} />
+          {/* ✅ 방 클릭 후 운행/평가 흐름 */}
+          <Stack.Screen name="TripFlow" component={TripFlowScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </>

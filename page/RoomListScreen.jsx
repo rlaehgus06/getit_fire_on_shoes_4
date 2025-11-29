@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components/native';
-import { FlatList } from 'react-native';
+import { FlatList, Alert } from 'react-native';
 import { KakaoMapModal } from '../assets/KakaoMapModal';
+
 const Container = styled.SafeAreaView`
   flex: 1;
   background-color: #f5f6fa;
@@ -65,7 +66,6 @@ const FilterText = styled.Text`
 
 const RouteButton = styled.TouchableOpacity`
   margin: 18px 18px 0 18px;
-  background: #e667e7;
   background-color: #725ef2;
   padding: 16px;
   border-radius: 16px;
@@ -94,7 +94,7 @@ const CreateButtonText = styled.Text`
   font-size: 16px;
 `;
 
-const RoomCard = styled.View`
+const RoomCard = styled.TouchableOpacity`
   background-color: #fff;
   margin: 10px 18px;
   padding: 18px 16px 12px 16px;
@@ -111,6 +111,12 @@ const RoomHeader = styled.View`
 const RoomEmoji = styled.Text`
   font-size: 24px;
   margin-right: 6px;
+`;
+
+const RoomName = styled.Text`
+  font-size: 16px;
+  font-weight: bold;
+  flex: 1;
 `;
 
 const MemberDesc = styled.Text`
@@ -145,81 +151,107 @@ const PriceText = styled.Text`
   color: #725ef2;
   font-weight: bold;
 `;
-const ModalButtonRow = styled.View`
-  flex-direction: row;
-  justify-content: flex-end;
-  margin-top: 4px;
-`;
 
-const ModalButton = styled.TouchableOpacity`
-  padding: 6px 10px;
-  margin-left: 8px;
-`;
-
-const ModalButtonText = styled.Text`
-  font-size: 14px;
-  color: #ff9900;
-  font-weight: 600;
-`;
-const SelectButton = styled.TouchableOpacity`
-  margin-top: 8px;
-  background-color: #ff9900;
-  padding: 10px 15px;
-  border-radius: 20px;
-  align-items: center;
-`;
-
-const SelectButtonText = styled.Text`
-  color: #fff;
-  font-weight: bold;
-`;
 export default function RoomListScreen({ navigation }) {
-  const [rooms, setRooms] = useState([
-    {
-      id: '1',
-      emoji: '😊',
-      name: '용감한',
-      trust: '신뢰온도 42°',
-      from: '강남역 3번 출구',
-      to: '서울대학교 정문',
-      gender: '여성',
-      time: '14:30',
-      members: '2/4명',
-      price: '₩3,750',
-    },
-    {
-      id: '2',
-      emoji: '😊',
-      name: '용감한',
-      trust: '신뢰온도 38°',
-      from: '강남역 3번 출구',
-      to: '서울대학교 정문',
-      gender: '남성',
-      time: '15:00',
-      members: '1/4명',
-      price: '₩2,900',
-    },
-  ]);
+  const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
-  // 필터링 상태
-  const [filter, setFilter] = useState('전체');
-  // 방 추가 예시
+  // 백엔드에서 방 목록 가져오기
+  const fetchRooms = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('YOUR_BACKEND_URL/api/rooms', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // 백엔드 데이터 → UI 데이터 변환
+        const formattedRooms = data.map(room => ({
+          id: room.id.toString(),
+          emoji: '😊', // 기본 이모지 (백엔드에서 추가 가능)
+          name: room.hostName,
+          // 백엔드에서 온도 같이 내려줄 경우 사용
+          temperature: room.temperature,
+          trust: room.temperature != null
+            ? `신뢰온도 ${room.temperature.toFixed(1)}°`
+            : '신뢰온도 36.0°',
+          from: room.start,
+          to: room.end,
+          gender: room.sameGenderOnly ? '동성만' : '상관없음',
+          time: new Date(room.departureTime).toLocaleTimeString('ko-KR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          }),
+          members: `${room.members}/${room.maxPeople}명`,
+          price: `₩${Math.round(15000 / room.maxPeople).toLocaleString()}`,
+          userId: room.user_id || room.hostUserId,  // ✅ 평가 대상 유저 아이디
+          rawData: room,
+        }));
+        setRooms(formattedRooms);
+      } else {
+        console.error('방 목록 가져오기 실패');
+      }
+    } catch (error) {
+      console.error('네트워크 오류:', error);
+      Alert.alert('오류', '방 목록을 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 컴포넌트 마운트 시 방 목록 가져오기
+  useEffect(() => {
+    fetchRooms();
+  }, []);
+
+  // 방 추가
   const addRoom = () => navigation.navigate('addRoom');
 
-  // 검색 바 연동
-  
-  const [search, setSearch] = useState('');
+  // 필터링된 방 목록
   const filteredRooms = rooms.filter(
     room =>
-      (filter === '전체' || room.gender === filter) &&
+      room.gender === '동성만' &&                      // 동성만 방만 남김
       (room.from.includes(search) ||
-        room.to.includes(search) ||
-        room.name.includes(search))
+       room.to.includes(search) ||
+       room.name.includes(search))
+  );
+
+  const renderRoom = ({ item }) => (
+    <RoomCard
+      onPress={() =>
+        navigation.navigate('TripFlow', {
+          userId: item.userId,                 // 평가 받을 사람 아이디
+          currentTemperature: item.temperature // 선택사항
+        })
+      }
+    >
+      <RoomHeader>
+        <RoomEmoji>{item.emoji}</RoomEmoji>
+        <RoomName>{item.name}</RoomName>
+        <MemberDesc>{item.gender}</MemberDesc>
+      </RoomHeader>
+      <InfoRow>
+        <InfoText>{item.trust}</InfoText>
+      </InfoRow>
+      <RoomRoute>
+        <RouteText>🟢 출발: {item.from}</RouteText>
+        <RouteText>🔴 도착: {item.to}</RouteText>
+      </RoomRoute>
+      <InfoRow>
+        <InfoText>{item.time} · {item.members}</InfoText>
+        <PriceText>{item.price}</PriceText>
+      </InfoRow>
+    </RoomCard>
   );
 
   return (
     <Container>
-      {/* 헤더 + 뒤로가기 */}
       <HeaderRow>
         <BackBtn onPress={() => navigation.goBack()}>
           <BackIcon>←</BackIcon>
@@ -227,32 +259,16 @@ export default function RoomListScreen({ navigation }) {
         <Title>합승 방 찾기</Title>
       </HeaderRow>
 
-      {/* 검색바 */}
       <SearchBar
         placeholder="출발지 또는 목적지 검색"
         value={search}
         onChangeText={setSearch}
       />
 
-      {/* 필터 버튼들 */}
-      <FilterRow>
-        <FilterButton active={filter === '전체'} onPress={() => setFilter('전체')}>
-          <FilterText active={filter === '전체'}>전체</FilterText>
-        </FilterButton>
-        <FilterButton active={filter === '여성'} onPress={() => setFilter('여성')}>
-          <FilterText active={filter === '여성'}>여성</FilterText>
-        </FilterButton>
-        <FilterButton active={filter === '남성'} onPress={() => setFilter('남성')}>
-          <FilterText active={filter === '남성'}>남성</FilterText>
-        </FilterButton>
-      </FilterRow>
-
-      {/* 내 경로로 맞는 방 찾기 */}
       <RouteButton onPress={() => navigation.navigate('FindMyWay')}>
         <RouteButtonText>내 경로로 맞는 방 찾기</RouteButtonText>
       </RouteButton>
 
-      {/* 새로운 방 만들기 */}
       <CreateButton onPress={addRoom}>
         <CreateButtonText>+ 새로운 방 만들기</CreateButtonText>
       </CreateButton>
@@ -260,26 +276,10 @@ export default function RoomListScreen({ navigation }) {
       <FlatList
         data={filteredRooms}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <RoomCard>
-            <RoomHeader>
-              <RoomEmoji>{item.emoji}</RoomEmoji>
-              <Title style={{ fontSize: 16 }}>{item.name}</Title>
-              <MemberDesc>{item.gender}</MemberDesc>
-            </RoomHeader>
-            <InfoRow>
-              <InfoText>{item.trust}</InfoText>
-            </InfoRow>
-            <RoomRoute>
-              <RouteText>🟢 출발: {item.from}</RouteText>
-              <RouteText>🔴 도착: {item.to}</RouteText>
-            </RoomRoute>
-            <InfoRow>
-              <InfoText>{item.time} · {item.members}</InfoText>
-              <PriceText>{item.price}</PriceText>
-            </InfoRow>
-          </RoomCard>
-        )}
+        renderItem={renderRoom}
+        refreshing={loading}
+        onRefresh={fetchRooms}
+        showsVerticalScrollIndicator={false}
       />
     </Container>
   );

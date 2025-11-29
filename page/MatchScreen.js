@@ -281,8 +281,8 @@ export default function MatchScreen({ navigation }) {
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
 
+  // 인원 상태
   const [people, setPeople] = useState(2); // 최소 2명
-  const [onlySameGender, setOnlySameGender] = useState(true);
 
   // 시간 상태
   const [timeModalVisible, setTimeModalVisible] = useState(false);
@@ -333,7 +333,6 @@ export default function MatchScreen({ navigation }) {
       baseFare: BASE_FARE,
       sharedFare,
       perPerson,
-      onlySameGender,
     });
   };
 
@@ -506,7 +505,7 @@ export default function MatchScreen({ navigation }) {
           </HintText>
         </Section>
 
-        {/* 매칭 설정 */}
+        {/* 매칭 설정 섹션은 모두 삭제합니다.
         <Section>
           <SectionLabel>매칭 설정</SectionLabel>
           <ToggleRow>
@@ -525,6 +524,8 @@ export default function MatchScreen({ navigation }) {
           </ToggleRow>
           <InfoText>안전한 합승을 위해 동성끼리만 매칭됩니다.</InfoText>
         </Section>
+        */}
+
       </Content>
 
       {/* 하단 버튼 */}

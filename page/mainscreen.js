@@ -1,3 +1,4 @@
+//mainscreen.js
 import React from 'react';
 import { Image } from 'react-native';
 import styled from 'styled-components/native';
